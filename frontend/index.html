@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Network Traffic Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <h1>Network Traffic Dashboard</h1>
+
+    <section id="total-packets">
+        <h2>Total Packets</h2>
+        <p id="total-packets-count">Loading...</p>
+    </section>
+
+    <section id="protocol-counts">
+        <h2>Protocol Counts</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Protocol</th>
+                    <th>Packet Count</th>
+                </tr>
+            </thead>
+            <tbody id="protocol-counts-body">
+                <!-- Data will be populated here -->
+            </tbody>
+        </table>
+    </section>
+
+    <section id="connections">
+        <h2>Connections</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Source IP</th>
+                    <th>Source Port</th>
+                    <th>Source Domain</th>
+                    <th>Destination IP</th>
+                    <th>Destination Port</th>
+                    <th>Destination Domain</th>
+                    <th>Protocol</th>
+                </tr>
+            </thead>
+            <tbody id="connections-body">
+                <!-- Data will be populated here -->
+            </tbody>
+        </table>
+    </section>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
