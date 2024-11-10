@@ -8,30 +8,11 @@
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"
             integrity="sha384-Xk6Xu+XQ0raVHGgJtF77xkHzsLvr+HHqKljE1lXWox3HhpQxvtCBkwR+opkV+3zp"
             crossorigin="anonymous"></script>
-    <!-- Include D3.js library -->
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="/static/app.js" defer></script>
+    <script src="/static/app.js"></script>
 </head>
 <body>
     <h1>Network Traffic Dashboard</h1>
 
-    <!-- Chart Containers -->
-    <div class="charts-container">
-        <div id="global-statistics" class="chart">
-            <h2>Global Statistics</h2>
-            <svg></svg>
-        </div>
-        <div id="protocol-distribution" class="chart">
-            <h2>Protocol Distribution</h2>
-            <svg></svg>
-        </div>
-        <div id="traffic-rate" class="chart">
-            <h2>Traffic Rate</h2>
-            <svg></svg>
-        </div>
-    </div>
-
-    <!-- Existing Sections -->
     <section id="total-packets">
         <h2>Total Packets</h2>
         <p id="total-packets-count">Loading...</p>
