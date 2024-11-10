@@ -1,3 +1,5 @@
+// app.js
+
 // Function to fetch and display total packets
 async function fetchTotalPackets() {
     try {
@@ -71,74 +73,84 @@ async function fetchConnections() {
     }
 }
 
-// Initialize WebSocket for real-time updates
-function initializeWebSocket() {
-    const ws = new WebSocket(`ws://${window.location.host}/ws/updates`);
+// Initialize Socket.IO for real-time updates
+function initializeSocketIO() {
+    // Establish a Socket.IO connection
+    const socket = io(); // By default, it connects to the host that serves the page
 
-    ws.onopen = () => {
-        console.log('WebSocket connection established.');
-    };
+    socket.on('connect', () => {
+        console.log('Socket.IO connection established.');
+    });
 
-    ws.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        switch(message.type) {
+    // Listen for 'update' events from the server
+    socket.on('update', (message) => {
+        console.log('Received update:', message); // Debugging line
+        const { type, data } = message;
+        switch(type) {
             case 'total_packets':
-                document.getElementById('total-packets-count').innerText = message.data.total_packets;
+                if (data.total_packets !== undefined) {
+                    document.getElementById('total-packets-count').innerText = data.total_packets;
+                } else {
+                    document.getElementById('total-packets-count').innerText = 'Error loading data';
+                }
                 break;
             case 'protocol_counts':
                 const protocolTbody = document.getElementById('protocol-counts-body');
                 protocolTbody.innerHTML = '';
-                message.data.protocol_counts.forEach(protocol => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${protocol.Protocol}</td>
-                        <td>${protocol['Packet Count']}</td>
-                    `;
-                    protocolTbody.appendChild(row);
-                });
+                if (data.protocol_counts) {
+                    data.protocol_counts.forEach(protocol => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${protocol.Protocol}</td>
+                            <td>${protocol['Packet Count']}</td>
+                        `;
+                        protocolTbody.appendChild(row);
+                    });
+                } else {
+                    protocolTbody.innerHTML = '<tr><td colspan="2">Error loading data</td></tr>';
+                }
                 break;
             case 'connections':
                 const connectionsTbody = document.getElementById('connections-body');
                 connectionsTbody.innerHTML = '';
-                message.data.connections.forEach(conn => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${conn['Source IP']}</td>
-                        <td>${conn['Source Port']}</td>
-                        <td>${conn['Source Domain']}</td>
-                        <td>${conn['Destination IP']}</td>
-                        <td>${conn['Destination Port']}</td>
-                        <td>${conn['Destination Domain']}</td>
-                        <td>${conn['Protocol']}</td>
-                    `;
-                    connectionsTbody.appendChild(row);
-                });
+                if (data.connections) {
+                    data.connections.forEach(conn => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${conn['Source IP']}</td>
+                            <td>${conn['Source Port']}</td>
+                            <td>${conn['Source Domain']}</td>
+                            <td>${conn['Destination IP']}</td>
+                            <td>${conn['Destination Port']}</td>
+                            <td>${conn['Destination Domain']}</td>
+                            <td>${conn['Protocol']}</td>
+                        `;
+                        connectionsTbody.appendChild(row);
+                    });
+                } else {
+                    connectionsTbody.innerHTML = '<tr><td colspan="7">Error loading data</td></tr>';
+                }
                 break;
             default:
-                console.warn('Unknown message type:', message.type);
+                console.warn('Unknown message type:', type);
         }
-    };
+    });
 
-    ws.onclose = () => {
-        console.log('WebSocket connection closed. Attempting to reconnect in 5 seconds...');
-        setTimeout(initializeWebSocket, 5000);
-    };
+    socket.on('disconnect', () => {
+        console.log('Socket.IO connection closed. Attempting to reconnect in 5 seconds...');
+        setTimeout(initializeSocketIO, 5000); // Attempt to reconnect after 5 seconds
+    });
 
-    ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        ws.close();
-    };
+    socket.on('connect_error', (error) => {
+        console.error('Socket.IO connection error:', error);
+    });
 }
 
-// Initial data fetch
 fetchTotalPackets();
 fetchProtocolCounts();
 fetchConnections();
 
-// Initialize WebSocket for real-time updates
-initializeWebSocket();
-
-// Optionally, set intervals to periodically refresh data
-// setInterval(fetchTotalPackets, 5000);
-// setInterval(fetchProtocolCounts, 5000);
-// setInterval(fetchConnections, 5000);
+initializeSocketIO();
+setInterval(fetchTotalPackets, 1);
+setInterval(fetchProtocolCounts, 1);
+setInterval(fetchConnections, 1);

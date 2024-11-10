@@ -1,109 +1,88 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, FileResponse
-from fastapi.middleware.cors import CORSMiddleware
+from flask import Flask, jsonify, send_from_directory
+from flask_cors import CORS
+from flask_socketio import SocketIO, emit
 import pandas as pd
 import os
-import asyncio
+import threading
+import time
 import json
-from typing import List
 from pathlib import Path
-from fastapi.staticfiles import StaticFiles  # Ensure this import is present
+import logging
 
-app = FastAPI()
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Allow CORS for frontend development (adjust origins as needed)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Update this to your frontend's origin
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Initialize Flask app
+app = Flask(__name__, static_folder='frontend', static_url_path='/static')
+
+# Configure CORS
+CORS(app, resources={r"/*": {"origins": "*"}})
+
+# Initialize SocketIO
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 DATA_FOLDER = Path("data")
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
-# Endpoint to serve the frontend (optional)
-@app.get("/", response_class=HTMLResponse)
-async def get_frontend():
-    return FileResponse("frontend/index.html")
+# REST Endpoints
 
-@app.get("/metrics/total_packets")
-async def get_total_packets():
+@app.route('/', methods=['GET'])
+def serve_frontend():
+    return send_from_directory('frontend', 'index.html')
+
+@app.route('/metrics/total_packets', methods=['GET'])
+def get_total_packets():
     total_packets_path = DATA_FOLDER / "total_packets.csv"
     if not total_packets_path.exists():
-        return {"error": "Total packets data not available."}
+        return jsonify({"error": "Total packets data not available."}), 404
     try:
         df = pd.read_csv(total_packets_path)
         if 'Value' in df.columns:
             total_packets = int(df['Value'][0])
-            return {"total_packets": total_packets}
+            return jsonify({"total_packets": total_packets})
         else:
-            return {"error": "'Value' column not found in total_packets.csv"}
+            return jsonify({"error": "'Value' column not found in total_packets.csv"}), 400
     except Exception as e:
-        return {"error": str(e)}
+        return jsonify({"error": str(e)}), 500
 
-
-@app.get("/metrics/protocol_counts")
-async def get_protocol_counts():
+@app.route('/metrics/protocol_counts', methods=['GET'])
+def get_protocol_counts():
     protocol_counts_path = DATA_FOLDER / "protocol_counts.csv"
     if not protocol_counts_path.exists():
-        return {"error": "Protocol counts data not available."}
+        return jsonify({"error": "Protocol counts data not available."}), 404
     try:
         df = pd.read_csv(protocol_counts_path)
         protocols = df.to_dict(orient='records')
-        return {"protocol_counts": protocols}
+        return jsonify({"protocol_counts": protocols})
     except Exception as e:
-        return {"error": str(e)}
+        return jsonify({"error": str(e)}), 500
 
-@app.get("/metrics/connections")
-async def get_connections():
+@app.route('/metrics/connections', methods=['GET'])
+def get_connections():
     connections_path = DATA_FOLDER / "connections.csv"
     if not connections_path.exists():
-        return {"error": "Connections data not available."}
+        return jsonify({"error": "Connections data not available."}), 404
     try:
         df = pd.read_csv(connections_path)
         connections = df.to_dict(orient='records')
-        return {"connections": connections}
+        return jsonify({"connections": connections})
     except Exception as e:
-        return {"error": str(e)}
+        return jsonify({"error": str(e)}), 500
 
-# WebSocket Manager to handle multiple connections
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
+# WebSocket Events
 
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-        print(f"WebSocket connected: {len(self.active_connections)} clients connected.")
+@socketio.on('connect')
+def handle_connect():
+    logger.info(f"WebSocket connected: {threading.active_count()} clients connected.")
+    emit('connection_response', {'message': 'Connected to server.'})
 
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-        print(f"WebSocket disconnected: {len(self.active_connections)} clients connected.")
+@socketio.on('disconnect')
+def handle_disconnect():
+    logger.info(f"WebSocket disconnected: {threading.active_count()} clients connected.")
 
-    async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            try:
-                await connection.send_text(message)
-            except:
-                # Handle broken connections
-                self.disconnect(connection)
+# Background File Watching Thread
 
-manager = ConnectionManager()
-
-@app.websocket("/ws/updates")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
-    try:
-        while True:
-            # Keep the connection open
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
-
-# Background task to watch for CSV updates and broadcast to clients
-async def watch_files():
+def watch_files():
     last_mod_times = {
         "total_packets": None,
         "protocol_counts": None,
@@ -122,10 +101,11 @@ async def watch_files():
                     if not df.empty and "Value" in df.columns:
                         total_packets = int(df['Value'][0])
                         data = {"total_packets": total_packets}
-                        await manager.broadcast(json.dumps({"type": "total_packets", "data": data}))
+                        socketio.emit('update', {"type": "total_packets", "data": data}, broadcast=True)
+                        logger.info("Emitted total_packets update.")
                     else:
-                        print("Unexpected format in total_packets.csv")
-            
+                        logger.warning("Unexpected format in total_packets.csv")
+
             # Check Protocol Counts
             protocol_counts_path = DATA_FOLDER / "protocol_counts.csv"
             if protocol_counts_path.exists():
@@ -135,8 +115,9 @@ async def watch_files():
                     df = pd.read_csv(protocol_counts_path)
                     protocols = df.to_dict(orient='records')
                     data = {"protocol_counts": protocols}
-                    await manager.broadcast(json.dumps({"type": "protocol_counts", "data": data}))
-            
+                    socketio.emit('update', {"type": "protocol_counts", "data": data}, broadcast=True)
+                    logger.info("Emitted protocol_counts update.")
+
             # Check Connections
             connections_path = DATA_FOLDER / "connections.csv"
             if connections_path.exists():
@@ -146,17 +127,29 @@ async def watch_files():
                     df = pd.read_csv(connections_path)
                     connections = df.to_dict(orient='records')
                     data = {"connections": connections}
-                    await manager.broadcast(json.dumps({"type": "connections", "data": data}))
-        
+                    socketio.emit('update', {"type": "connections", "data": data}, broadcast=True)
+                    logger.info("Emitted connections update.")
+
         except Exception as e:
-            print(f"Error watching files: {e}")
-        
-        await asyncio.sleep(1)  # Check every second
+            logger.error(f"Error watching files: {e}")
 
+        time.sleep(1)  # Check every second
 
-# Start the background task when the app starts
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(watch_files())
+# Start the background thread
+def start_background_thread():
+    logger.info("Starting background file watching thread.")
+    thread = threading.Thread(target=watch_files)
+    thread.daemon = True
+    thread.start()
 
+# Ensure the background thread starts before the first request
+@app.before_first_request
+def before_first_request():
+    start_background_thread()
 
+# Run the Flask app with SocketIO
+if __name__ == '__main__':
+    import eventlet
+    eventlet.monkey_patch()
+    logger.info("Starting Flask-SocketIO server on http://0.0.0.0:8000")
+    socketio.run(app, host='0.0.0.0', port=8000)
