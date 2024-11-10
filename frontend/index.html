@@ -4,11 +4,6 @@
     <meta charset="UTF-8">
     <title>Network Traffic Dashboard</title>
     <link rel="stylesheet" href="/static/styles.css">
-    <!-- Include Socket.IO client library -->
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"
-            integrity="sha384-Xk6Xu+XQ0raVHGgJtF77xkHzsLvr+HHqKljE1lXWox3HhpQxvtCBkwR+opkV+3zp"
-            crossorigin="anonymous"></script>
-    <script src="/static/app.js"></script>
 </head>
 <body>
     <h1>Network Traffic Dashboard</h1>
@@ -28,7 +23,7 @@
                 </tr>
             </thead>
             <tbody id="protocol-counts-body">
-                <tr><td colspan="2">Loading...</td></tr>
+                <!-- Data will be populated here -->
             </tbody>
         </table>
     </section>
@@ -48,9 +43,11 @@
                 </tr>
             </thead>
             <tbody id="connections-body">
-                <tr><td colspan="7">Loading...</td></tr>
+                <!-- Data will be populated here -->
             </tbody>
         </table>
     </section>
+
+    <script src="/static/app.js"></script>
 </body>
 </html>
