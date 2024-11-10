@@ -1,27 +1,109 @@
 body {
-    font-family: Arial, sans-serif;
-    margin: 20px;
+    background-color: #121212;
+    color: #ffffff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 20px;
 }
 
 h1, h2 {
-    color: #333;
+    color: #ffffff;
+}
+
+section {
+    margin-bottom: 10px; /* Reduced the margin-bottom for a compact layout */
+    padding: 10px 0; /* Added padding to ensure spacing within each section */
+}
+
+svg {
+    width: 100%;
+    height: auto;
+    background-color: #1e1e1e;
+    border-radius: 8px;
+}
+
+.line {
+    fill: none;
+    stroke-width: 2px;
+}
+
+.total-packets-line {
+    stroke: steelblue;
+}
+
+.packet-rate-line {
+    stroke: orange;
+}
+
+.axis path,
+.axis line {
+    fill: none;
+    stroke: #bbb;
+    shape-rendering: crispEdges;
+}
+
+.axis text {
+    fill: #bbb;
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 20px;
-}
-
-table, th, td {
-    border: 1px solid #ccc;
+    background-color: #1e1e1e;
+    color: #ffffff;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 th, td {
-    padding: 8px;
+    padding: 10px; /* Reduced padding for a more compact table */
     text-align: left;
+    color: #ffffff !important;
 }
 
 th {
-    background-color: #f4f4f4;
+    background-color: #333333;
+}
+
+tr:nth-child(even) {
+    background-color: #2a2a2a;
+}
+
+tr:hover {
+    background-color: #3a3a3a;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    color: #ffffff !important;
+}
+
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter,
+.dataTables_wrapper .dataTables_info {
+    color: #ffffff;
+}
+
+#connections-table_wrapper .dataTables_scrollBody {
+    background-color: #1e1e1e;
+}
+
+#connections-table {
+    margin-top: 10px;
+}
+
+.dataTables_empty {
+    color: #fff !important;
+}
+
+table.dataTable thead th,
+table.dataTable tfoot th {
+    color: #fff !important;
+}
+
+table.dataTable thead th {
+    border-bottom: 1px solid #444;
+}
+
+table.dataTable tbody td {
+    color: #fff !important;
 }

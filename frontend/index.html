@@ -3,34 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <title>Network Traffic Dashboard</title>
+    <!-- Include D3.js -->
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <!-- Include DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">
+    <!-- Include your custom CSS -->
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
     <h1>Network Traffic Dashboard</h1>
 
     <section id="total-packets">
-        <h2>Total Packets</h2>
-        <p id="total-packets-count">Loading...</p>
+        <h2>Total Packets Over Time</h2>
+        <svg id="totalPacketsChart" width="800" height="300"></svg> <!-- Reduced height -->
+    </section>
+
+    <section id="packet-rate">
+        <h2>Packet Rate Over Time</h2>
+        <svg id="packetRateChart" width="800" height="300"></svg> <!-- Reduced height -->
     </section>
 
     <section id="protocol-counts">
-        <h2>Protocol Counts</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Protocol</th>
-                    <th>Packet Count</th>
-                </tr>
-            </thead>
-            <tbody id="protocol-counts-body">
-                <!-- Data will be populated here -->
-            </tbody>
-        </table>
+        <h2>Protocol Distribution</h2>
+        <svg id="protocolCountsChart" width="400" height="300"></svg> <!-- Reduced height -->
     </section>
 
     <section id="connections">
-        <h2>Connections</h2>
-        <table>
+        <h2>Active Connections</h2>
+        <table id="connections-table">
             <thead>
                 <tr>
                     <th>Source IP</th>
@@ -48,6 +48,11 @@
         </table>
     </section>
 
+    <!-- Include jQuery and DataTables JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Include DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <!-- Include your custom JavaScript -->
     <script src="/static/app.js"></script>
 </body>
 </html>
