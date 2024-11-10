@@ -12,25 +12,22 @@
 #include <mutex>
 #include <vector>
 #include <cstring>
-#include <netdb.h>    // For getnameinfo
+#include <netdb.h>    
 #include <atomic>
-#include <sys/stat.h> // For mkdir and stat
+#include <sys/stat.h> 
 #include <sys/types.h>
-#include <cerrno>     // For errno
+#include <cerrno>     
 
-// Structure to hold connection information
 struct Connection {
     std::string src_ip;
     uint16_t src_port;
     std::string dst_ip;
     uint16_t dst_port;
     std::string protocol;
-    std::string src_domain; // Source domain name
-    std::string dst_domain; // Destination domain name
-    // Additional fields can be added as needed
+    std::string src_domain; 
+    std::string dst_domain; 
 };
 
-// Global metrics
 struct Metrics {
     uint64_t total_packets = 0;
     std::unordered_map<std::string, uint64_t> protocol_counts;
@@ -38,10 +35,8 @@ struct Metrics {
     std::mutex mtx; // To protect shared data
 } metrics;
 
-// Directory to store CSV files
 const std::string DATA_FOLDER = "data";
 
-// CSV file paths within the data folder
 const std::string TOTAL_PACKETS_CSV = DATA_FOLDER + "/total_packets.csv";
 const std::string PROTOCOL_COUNTS_CSV = DATA_FOLDER + "/protocol_counts.csv";
 const std::string CONNECTIONS_CSV = DATA_FOLDER + "/connections.csv";

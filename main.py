@@ -9,22 +9,17 @@ import json
 from pathlib import Path
 import logging
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize Flask app
 app = Flask(__name__, static_folder='frontend', static_url_path='/static')
 
-# Configure CORS
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# Initialize SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 DATA_FOLDER = Path("data")
 
-# REST Endpoints
 
 @app.route('/', methods=['GET'])
 def serve_frontend():
@@ -135,19 +130,16 @@ def watch_files():
 
         time.sleep(1)  # Check every second
 
-# Start the background thread
 def start_background_thread():
     logger.info("Starting background file watching thread.")
     thread = threading.Thread(target=watch_files)
     thread.daemon = True
     thread.start()
 
-# Ensure the background thread starts before the first request
 @app.before_first_request
 def before_first_request():
     start_background_thread()
 
-# Run the Flask app with SocketIO
 if __name__ == '__main__':
     import eventlet
     eventlet.monkey_patch()
