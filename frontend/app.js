@@ -1,13 +1,12 @@
 // app.js
 
-// Function to fetch and display total packets (Removed periodic fetches since we're using WebSockets)
+// Function to fetch and display total packets
 async function fetchTotalPackets() {
     try {
         const response = await fetch('/metrics/total_packets');
         const data = await response.json();
         if (data.total_packets !== undefined) {
             document.getElementById('total-packets-count').innerText = data.total_packets;
-            updateGlobalStatisticsChart(data.total_packets);
         } else {
             document.getElementById('total-packets-count').innerText = 'Error loading data';
         }
@@ -17,7 +16,7 @@ async function fetchTotalPackets() {
     }
 }
 
-// Function to fetch and display protocol counts (Removed periodic fetches since we're using WebSockets)
+// Function to fetch and display protocol counts
 async function fetchProtocolCounts() {
     try {
         const response = await fetch('/metrics/protocol_counts');
@@ -34,13 +33,6 @@ async function fetchProtocolCounts() {
                 `;
                 tbody.appendChild(row);
             });
-
-            // Update the protocol distribution chart
-            const protocolData = data.protocol_counts.map(protocol => ({
-                protocol: protocol.Protocol,
-                count: parseInt(protocol['Packet Count'])
-            }));
-            updateProtocolDistributionChart(protocolData);
         } else {
             tbody.innerHTML = '<tr><td colspan="2">Error loading data</td></tr>';
         }
@@ -50,7 +42,7 @@ async function fetchProtocolCounts() {
     }
 }
 
-// Function to fetch and display connections (Removed periodic fetches since we're using WebSockets)
+// Function to fetch and display connections
 async function fetchConnections() {
     try {
         const response = await fetch('/metrics/connections');
@@ -84,28 +76,19 @@ async function fetchConnections() {
 // Initialize Socket.IO for real-time updates
 function initializeSocketIO() {
     // Establish a Socket.IO connection
-    const socket = io(); // Ensure the correct URL and port
+    const socket = io(); // By default, it connects to the host that serves the page
 
     socket.on('connect', () => {
         console.log('Socket.IO connection established.');
     });
 
-    socket.on('connect_error', (error) => {
-        console.error('Socket.IO connection error:', error);
-    });
-
-    socket.on('disconnect', () => {
-        console.log('Socket.IO connection closed.');
-    });
-
     // Listen for 'update' events from the server
     socket.on('update', (message) => {
-        console.log('Received update:', message);
+        console.log('Received update:', message); // Debugging line
         const { type, data } = message;
         switch(type) {
             case 'total_packets':
                 if (data.total_packets !== undefined) {
-                    updateGlobalStatisticsChart(data.total_packets);
                     document.getElementById('total-packets-count').innerText = data.total_packets;
                 } else {
                     document.getElementById('total-packets-count').innerText = 'Error loading data';
@@ -123,12 +106,6 @@ function initializeSocketIO() {
                         `;
                         protocolTbody.appendChild(row);
                     });
-                    // Update the protocol distribution chart
-                    const protocolData = data.protocol_counts.map(protocol => ({
-                        protocol: protocol.Protocol,
-                        count: parseInt(protocol['Packet Count'])
-                    }));
-                    updateProtocolDistributionChart(protocolData);
                 } else {
                     protocolTbody.innerHTML = '<tr><td colspan="2">Error loading data</td></tr>';
                 }
@@ -154,15 +131,8 @@ function initializeSocketIO() {
                     connectionsTbody.innerHTML = '<tr><td colspan="7">Error loading data</td></tr>';
                 }
                 break;
-            case 'traffic_rate':
-                    if (data.traffic_rate !== undefined) {
-                        updateTrafficRateChart(data.traffic_rate);
-                    } else {
-                        console.warn('Received traffic_rate update with undefined value.');
-                    }
-                    break;
             default:
-                    console.warn('Unknown message type:', type);
+                console.warn('Unknown message type:', type);
         }
     });
 
@@ -181,11 +151,8 @@ function initializeSocketIO() {
 // 1. Global Statistics (Simple Counter with Animation)
 function initializeGlobalStatisticsChart() {
     const svg = d3.select('#global-statistics svg');
-    const width = parseInt(svg.style('width')) || 300;
-    const height = parseInt(svg.style('height')) || 250;
-
-    svg.attr('width', width)
-       .attr('height', height);
+    const width = parseInt(svg.style('width'));
+    const height = parseInt(svg.style('height'));
 
     svg.append('text')
         .attr('id', 'global-stat-text')
@@ -210,42 +177,69 @@ function updateGlobalStatisticsChart(value) {
 }
 
 // 2. Protocol Distribution (Donut Chart)
+let protocolData = [
+    { protocol: 'TCP', count: 40 },
+    { protocol: 'UDP', count: 30 },
+    { protocol: 'ICMP', count: 20 },
+    { protocol: 'Other', count: 10 }
+];
+
 function initializeProtocolDistributionChart() {
     const svg = d3.select('#protocol-distribution svg');
-    const width = parseInt(svg.style('width')) || 300;
-    const height = parseInt(svg.style('height')) || 250;
+    const width = parseInt(svg.style('width'));
+    const height = parseInt(svg.style('height'));
     const radius = Math.min(width, height) / 2 - 20;
-
-    svg.attr('width', width)
-       .attr('height', height);
 
     const g = svg.append('g')
         .attr('transform', `translate(${width / 2}, ${height / 2})`);
 
-    g.append('text')
-        .attr('class', 'no-data-text')
-        .attr('text-anchor', 'middle')
-        .attr('dy', '.35em')
-        .text('No data available');
+    const color = d3.scaleOrdinal()
+        .domain(protocolData.map(d => d.protocol))
+        .range(d3.schemeCategory10);
+
+    const pie = d3.pie()
+        .sort(null)
+        .value(d => d.count);
+
+    const path = d3.arc()
+        .outerRadius(radius)
+        .innerRadius(radius - 70);
+
+    const arc = g.selectAll('.arc')
+        .data(pie(protocolData))
+        .enter().append('g')
+        .attr('class', 'arc');
+
+    arc.append('path')
+        .attr('d', path)
+        .attr('fill', d => color(d.data.protocol))
+        .on('mouseover', function(event, d) {
+            tooltip.transition()
+                .duration(200)
+                .style('opacity', .9);
+            tooltip.html(`${d.data.protocol}: ${d.data.count}`)
+                .style('left', (event.pageX) + 'px')
+                .style('top', (event.pageY - 28) + 'px');
+        })
+        .on('mouseout', function() {
+            tooltip.transition()
+                .duration(500)
+                .style('opacity', 0);
+        });
 
     // Add Tooltip
-    d3.select('body').append('div')
+    const tooltip = d3.select('body').append('div')
         .attr('class', 'tooltip')
         .style('opacity', 0);
 }
 
 function updateProtocolDistributionChart(newData) {
     const svg = d3.select('#protocol-distribution svg');
-    const width = parseInt(svg.style('width')) || 300;
-    const height = parseInt(svg.style('height')) || 250;
+    const width = parseInt(svg.style('width'));
+    const height = parseInt(svg.style('height'));
     const radius = Math.min(width, height) / 2 - 20;
 
     const g = svg.select('g');
-
-    // Remove "No data available" text if data is present
-    if (newData.length > 0) {
-        g.select('.no-data-text').remove();
-    }
 
     const color = d3.scaleOrdinal()
         .domain(newData.map(d => d.protocol))
@@ -276,10 +270,9 @@ function updateProtocolDistributionChart(newData) {
         .attr('fill', d => color(d.data.protocol));
 
     // Enter new arcs
-    const newArcs = arcs.enter().append('g')
-        .attr('class', 'arc');
-
-    newArcs.append('path')
+    arcs.enter().append('g')
+        .attr('class', 'arc')
+        .append('path')
         .attr('d', path)
         .attr('fill', d => color(d.data.protocol))
         .each(function(d) { this._current = d; })
@@ -309,17 +302,15 @@ let trafficData = [];
 
 function initializeTrafficRateChart() {
     const svg = d3.select('#traffic-rate svg');
-    const width = parseInt(svg.style('width')) - 50 || 250;
-    const height = parseInt(svg.style('height')) - 50 || 200;
-
-    width -= 50; // Adjust for margins
-    height -= 50;
-
-    svg.attr('width', width + 50)
-       .attr('height', height + 50);
+    const width = parseInt(svg.style('width')) - 50;
+    const height = parseInt(svg.style('height')) - 50;
 
     const x = d3.scaleTime().range([0, width]);
     const y = d3.scaleLinear().range([height, 0]);
+
+    const line = d3.line()
+        .x(d => x(d.time))
+        .y(d => y(d.rate));
 
     const g = svg.append('g')
         .attr('transform', 'translate(40,10)');
@@ -327,10 +318,12 @@ function initializeTrafficRateChart() {
     // Define axes
     g.append('g')
         .attr('class', 'x axis')
-        .attr('transform', `translate(0,${height})`);
+        .attr('transform', `translate(0,${height})`)
+        .call(d3.axisBottom(x));
 
     g.append('g')
-        .attr('class', 'y axis');
+        .attr('class', 'y axis')
+        .call(d3.axisLeft(y));
 
     // Define the line path
     g.append('path')
@@ -338,20 +331,46 @@ function initializeTrafficRateChart() {
         .attr('class', 'line')
         .attr('fill', 'none')
         .attr('stroke', '#ff5722')
-        .attr('stroke-width', 2);
+        .attr('stroke-width', 2)
+        .attr('d', line);
 
     // Tooltip
-    d3.select('body').append('div')
+    const tooltip = d3.select('body').append('div')
         .attr('class', 'tooltip')
         .style('opacity', 0);
+
+    // Add circles for data points
+    g.selectAll('.dot')
+        .data(trafficData)
+        .enter().append('circle')
+        .attr('class', 'dot')
+        .attr('cx', d => x(d.time))
+        .attr('cy', d => y(d.rate))
+        .attr('r', 4)
+        .attr('fill', '#ff5722')
+        .on('mouseover', function(event, d) {
+            tooltip.transition()
+                .duration(200)
+                .style('opacity', .9);
+            tooltip.html(`Time: ${d3.timeFormat("%H:%M:%S")(d.time)}<br/>Rate: ${d.rate} pkt/s`)
+                .style('left', (event.pageX) + 'px')
+                .style('top', (event.pageY - 28) + 'px');
+        })
+        .on('mouseout', function() {
+            tooltip.transition()
+                .duration(500)
+                .style('opacity', 0);
+        });
+
+    // Initialize axes
+    x.domain([new Date(), new Date()]);
+    y.domain([0, 100]);
 }
 
 function updateTrafficRateChart(newRate) {
-    console.log('Updating traffic rate chart with rate:', newRate); // Add this line
-
     const svg = d3.select('#traffic-rate svg');
-    const width = parseInt(svg.style('width')) - 50 || 250;
-    const height = parseInt(svg.style('height')) - 50 || 200;
+    const width = parseInt(svg.style('width')) - 50;
+    const height = parseInt(svg.style('height')) - 50;
 
     const x = d3.scaleTime().range([0, width]);
     const y = d3.scaleLinear().range([height, 0]);
@@ -428,7 +447,6 @@ function updateTrafficRateChart(newRate) {
     dots.exit().remove();
 }
 
-
 // Initialize all charts
 function initializeCharts() {
     initializeGlobalStatisticsChart();
@@ -436,11 +454,41 @@ function initializeCharts() {
     initializeTrafficRateChart();
 }
 
+// Sample Data Generation for Testing
+function generateSampleData() {
+    // Initialize charts with sample data
+    updateGlobalStatisticsChart(1000);
+
+    // Protocol Distribution
+    const protocols = ['TCP', 'UDP', 'ICMP', 'Other'];
+    protocolData = protocols.map(proto => ({
+        protocol: proto,
+        count: Math.floor(Math.random() * 100) + 10
+    }));
+    updateProtocolDistributionChart(protocolData);
+
+    // Traffic Rate
+    const sampleRate = Math.floor(Math.random() * 100) + 20;
+    updateTrafficRateChart(sampleRate);
+}
+
+// Periodically update charts with sample data
+function startSampleDataStreaming() {
+    setInterval(() => {
+        generateSampleData();
+    }, 3000); // Update every 3 seconds
+}
+
 // Initialize everything after DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     initializeCharts();
+    startSampleDataStreaming();
     fetchTotalPackets();
     fetchProtocolCounts();
     fetchConnections();
     initializeSocketIO();
+    // Reduce fetch intervals to reasonable values
+    setInterval(fetchTotalPackets, 5000); // Every 5 seconds
+    setInterval(fetchProtocolCounts, 5000);
+    setInterval(fetchConnections, 5000);
 });

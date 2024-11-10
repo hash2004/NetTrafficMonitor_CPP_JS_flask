@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <title>Network Traffic Dashboard</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <!-- Include Socket.IO client library -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"
+            integrity="sha384-Xk6Xu+XQ0raVHGgJtF77xkHzsLvr+HHqKljE1lXWox3HhpQxvtCBkwR+opkV+3zp"
+            crossorigin="anonymous"></script>
     <!-- Include D3.js library -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <!-- Include Socket.IO client library (Version 2.3.0 for compatibility) -->
-    <script src="/socket.io/socket.io.js"></script>
-    <!-- Include your custom app.js -->
     <script src="/static/app.js" defer></script>
 </head>
 <body>
@@ -26,7 +27,7 @@
         </div>
         <div id="traffic-rate" class="chart">
             <h2>Traffic Rate</h2>
-            <svg width="400" height="300"></svg>
+            <svg></svg>
         </div>
     </div>
 

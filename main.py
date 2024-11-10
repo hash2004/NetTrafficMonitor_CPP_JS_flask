@@ -8,7 +8,6 @@ import time
 import json
 from pathlib import Path
 import logging
-import traceback
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -16,10 +15,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, static_folder='frontend', static_url_path='/static')
 
 CORS(app, resources={r"/*": {"origins": "*"}})
-from flask_socketio import SocketIO
 
-# Initialize SocketIO without specifying the CORS origins (handled internally)
-socketio = SocketIO(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 DATA_FOLDER = Path("data")
@@ -28,7 +24,6 @@ DATA_FOLDER = Path("data")
 @app.route('/', methods=['GET'])
 def serve_frontend():
     return send_from_directory('frontend', 'index.html')
-
 
 @app.route('/metrics/total_packets', methods=['GET'])
 def get_total_packets():
@@ -45,7 +40,6 @@ def get_total_packets():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 @app.route('/metrics/protocol_counts', methods=['GET'])
 def get_protocol_counts():
     protocol_counts_path = DATA_FOLDER / "protocol_counts.csv"
@@ -57,7 +51,6 @@ def get_protocol_counts():
         return jsonify({"protocol_counts": protocols})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 @app.route('/metrics/connections', methods=['GET'])
 def get_connections():
@@ -88,8 +81,7 @@ def watch_files():
     last_mod_times = {
         "total_packets": None,
         "protocol_counts": None,
-        "connections": None,
-        "traffic_rate": None
+        "connections": None
     }
     while True:
         try:
@@ -100,11 +92,12 @@ def watch_files():
                 if last_mod_times["total_packets"] != mod_time:
                     last_mod_times["total_packets"] = mod_time
                     df = pd.read_csv(total_packets_path)
+                    
                     if not df.empty and "Value" in df.columns:
                         total_packets = int(df['Value'][0])
                         data = {"total_packets": total_packets}
                         socketio.emit('update', {"type": "total_packets", "data": data}, broadcast=True)
-                        logger.info(f"Emitted total_packets update: {total_packets}")
+                        logger.info("Emitted total_packets update.")
                     else:
                         logger.warning("Unexpected format in total_packets.csv")
 
@@ -132,31 +125,8 @@ def watch_files():
                     socketio.emit('update', {"type": "connections", "data": data}, broadcast=True)
                     logger.info("Emitted connections update.")
 
-            # Check Traffic Rate
-            traffic_rate_path = DATA_FOLDER / "traffic_rate.csv"
-            if traffic_rate_path.exists():
-                mod_time = traffic_rate_path.stat().st_mtime
-                if last_mod_times["traffic_rate"] != mod_time:
-                    last_mod_times["traffic_rate"] = mod_time
-                    df = pd.read_csv(traffic_rate_path)
-                    if not df.empty and "Value" in df.columns:
-                        traffic_rate = int(df['Value'][0])
-                        data = {"traffic_rate": traffic_rate}
-                        socketio.emit('update', {"type": "traffic_rate", "data": data}, broadcast=True)
-                        logger.info(f"Emitted traffic_rate update: {traffic_rate}")
-                    else:
-                        logger.warning("Unexpected format in traffic_rate.csv")
-            if not df.empty and "Value" in df.columns:
-                traffic_rate = int(df['Value'][0])
-                data = {"traffic_rate": traffic_rate}
-                socketio.emit('update', {"type": "traffic_rate", "data": data}, broadcast=True)
-                logger.info(f"Emitted traffic_rate update: {traffic_rate}")
-            else:
-                logger.warning("Unexpected format in traffic_rate.csv")
-
         except Exception as e:
             logger.error(f"Error watching files: {e}")
-            traceback.print_exc()
 
         time.sleep(1)  # Check every second
 

@@ -12,11 +12,11 @@
 #include <mutex>
 #include <vector>
 #include <cstring>
-#include <netdb.h>
+#include <netdb.h>    
 #include <atomic>
-#include <sys/stat.h>
+#include <sys/stat.h> 
 #include <sys/types.h>
-#include <cerrno>
+#include <cerrno>     
 
 struct Connection {
     std::string src_ip;
@@ -24,15 +24,14 @@ struct Connection {
     std::string dst_ip;
     uint16_t dst_port;
     std::string protocol;
-    std::string src_domain;
-    std::string dst_domain;
+    std::string src_domain; 
+    std::string dst_domain; 
 };
 
 struct Metrics {
     uint64_t total_packets = 0;
     std::unordered_map<std::string, uint64_t> protocol_counts;
     std::unordered_map<std::string, Connection> connections;
-    uint64_t packets_last_second = 0; // Added for packets per second
     std::mutex mtx; // To protect shared data
 } metrics;
 
@@ -41,7 +40,6 @@ const std::string DATA_FOLDER = "data";
 const std::string TOTAL_PACKETS_CSV = DATA_FOLDER + "/total_packets.csv";
 const std::string PROTOCOL_COUNTS_CSV = DATA_FOLDER + "/protocol_counts.csv";
 const std::string CONNECTIONS_CSV = DATA_FOLDER + "/connections.csv";
-const std::string TRAFFIC_RATE_CSV = DATA_FOLDER + "/traffic_rate.csv"; // Added for traffic rate
 
 // Global domain cache
 std::unordered_map<std::string, std::string> domain_cache;
@@ -103,7 +101,7 @@ std::string resolve_domain(const std::string& ip) {
     sa.sin_addr.s_addr = inet_addr(ip.c_str());
 
     std::string domain = "";
-    if (getnameinfo((struct sockaddr*)&sa, sizeof(sa), host, sizeof(host), 0, 0, 0) == 0) {
+    if (getnameinfo((struct sockaddr*)&sa, sizeof(sa), host, sizeof(host), NULL, 0, 0) == 0) {
         domain = std::string(host);
     }
 
@@ -120,11 +118,6 @@ std::string resolve_domain(const std::string& ip) {
 void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
     // Assuming Ethernet + IP
     const struct ip* ip_hdr = (struct ip*)(packet + 14); // Ethernet header is 14 bytes
-
-    if (ip_hdr == nullptr) {
-        return;
-    }
-
     std::string src_ip = inet_ntoa(ip_hdr->ip_src);
     std::string dst_ip = inet_ntoa(ip_hdr->ip_dst);
 
@@ -152,25 +145,22 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char
     std::string dst_domain = resolve_domain(dst_ip);
 
     // Update metrics
-    {
-        std::lock_guard<std::mutex> lock(metrics.mtx);
-        metrics.total_packets++;
-        metrics.packets_last_second++; // Increment packets in the last second
-        metrics.protocol_counts[protocol]++;
+    std::lock_guard<std::mutex> lock(metrics.mtx);
+    metrics.total_packets++;
+    metrics.protocol_counts[protocol]++;
 
-        // Identify unique connection by src-dst IP and ports
-        std::string connection_key = src_ip + ":" + std::to_string(src_port) + "->" + dst_ip + ":" + std::to_string(dst_port);
-        if (metrics.connections.find(connection_key) == metrics.connections.end()) {
-            Connection conn;
-            conn.src_ip = src_ip;
-            conn.src_port = src_port;
-            conn.dst_ip = dst_ip;
-            conn.dst_port = dst_port;
-            conn.protocol = protocol;
-            conn.src_domain = src_domain.empty() ? "N/A" : src_domain; // Set source domain
-            conn.dst_domain = dst_domain.empty() ? "N/A" : dst_domain; // Set destination domain
-            metrics.connections[connection_key] = conn;
-        }
+    // Identify unique connection by src-dst IP and ports
+    std::string connection_key = src_ip + ":" + std::to_string(src_port) + "->" + dst_ip + ":" + std::to_string(dst_port);
+    if (metrics.connections.find(connection_key) == metrics.connections.end()) {
+        Connection conn;
+        conn.src_ip = src_ip;
+        conn.src_port = src_port;
+        conn.dst_ip = dst_ip;
+        conn.dst_port = dst_port;
+        conn.protocol = protocol;
+        conn.src_domain = src_domain.empty() ? "N/A" : src_domain; // Set source domain
+        conn.dst_domain = dst_domain.empty() ? "N/A" : dst_domain; // Set destination domain
+        metrics.connections[connection_key] = conn;
     }
 
     // Optionally, you can store per-connection packet counts, etc.
@@ -181,62 +171,43 @@ void write_metrics_to_csv() {
     while (true) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
 
-        uint64_t packets_this_second = 0;
+        std::lock_guard<std::mutex> lock(metrics.mtx);
 
-        {
-            std::lock_guard<std::mutex> lock(metrics.mtx);
-            packets_this_second = metrics.packets_last_second;
-            metrics.packets_last_second = 0; // Reset for the next interval
-        }
-
-        // Write Traffic Rate to traffic_rate.csv
-        std::ofstream traffic_rate_file(TRAFFIC_RATE_CSV, std::ios::trunc);
-        if (!traffic_rate_file.is_open()) {
-            std::cerr << "Failed to open " << TRAFFIC_RATE_CSV << " for writing.\n";
+        // Write Total Packets to total_packets.csv
+        std::ofstream total_packets_file(TOTAL_PACKETS_CSV, std::ios::trunc);
+        if (!total_packets_file.is_open()) {
+            std::cerr << "Failed to open " << TOTAL_PACKETS_CSV << " for writing.\n";
         } else {
-            traffic_rate_file << "Metric,Value\n" << "Packets Per Second," << packets_this_second << "\n";
-            traffic_rate_file.close();
+            total_packets_file << "Metric,Value\n" << "Total Packets," << metrics.total_packets << "\n";
+            total_packets_file.close();
         }
 
-        {
-            std::lock_guard<std::mutex> lock(metrics.mtx);
-
-            // Write Total Packets to total_packets.csv
-            std::ofstream total_packets_file(TOTAL_PACKETS_CSV, std::ios::trunc);
-            if (!total_packets_file.is_open()) {
-                std::cerr << "Failed to open " << TOTAL_PACKETS_CSV << " for writing.\n";
-            } else {
-                total_packets_file << "Metric,Value\n" << "Total Packets," << metrics.total_packets << "\n";
-                total_packets_file.close();
+        // Write Protocol Counts to protocol_counts.csv
+        std::ofstream protocol_counts_file(PROTOCOL_COUNTS_CSV, std::ios::trunc);
+        if (!protocol_counts_file.is_open()) {
+            std::cerr << "Failed to open " << PROTOCOL_COUNTS_CSV << " for writing.\n";
+        } else {
+            protocol_counts_file << "Protocol,Packet Count\n";
+            for (const auto& [proto, count] : metrics.protocol_counts) {
+                protocol_counts_file << proto << "," << count << "\n";
             }
+            protocol_counts_file.close();
+        }
 
-            // Write Protocol Counts to protocol_counts.csv
-            std::ofstream protocol_counts_file(PROTOCOL_COUNTS_CSV, std::ios::trunc);
-            if (!protocol_counts_file.is_open()) {
-                std::cerr << "Failed to open " << PROTOCOL_COUNTS_CSV << " for writing.\n";
-            } else {
-                protocol_counts_file << "Protocol,Packet Count\n";
-                for (const auto& [proto, count] : metrics.protocol_counts) {
-                    protocol_counts_file << proto << "," << count << "\n";
-                }
-                protocol_counts_file.close();
+        // Write Connections to connections.csv
+        std::ofstream connections_file(CONNECTIONS_CSV, std::ios::trunc);
+        if (!connections_file.is_open()) {
+            std::cerr << "Failed to open " << CONNECTIONS_CSV << " for writing.\n";
+        } else {
+            connections_file << "Source IP,Source Port,Source Domain,Destination IP,Destination Port,Destination Domain,Protocol\n";
+            for (const auto& [key, conn] : metrics.connections) {
+                connections_file << conn.src_ip << "," << conn.src_port << "," 
+                                 << conn.src_domain << "," 
+                                 << conn.dst_ip << "," << conn.dst_port << "," 
+                                 << conn.dst_domain << "," 
+                                 << conn.protocol << "\n";
             }
-
-            // Write Connections to connections.csv
-            std::ofstream connections_file(CONNECTIONS_CSV, std::ios::trunc);
-            if (!connections_file.is_open()) {
-                std::cerr << "Failed to open " << CONNECTIONS_CSV << " for writing.\n";
-            } else {
-                connections_file << "Source IP,Source Port,Source Domain,Destination IP,Destination Port,Destination Domain,Protocol\n";
-                for (const auto& [key, conn] : metrics.connections) {
-                    connections_file << conn.src_ip << "," << conn.src_port << ","
-                                     << conn.src_domain << ","
-                                     << conn.dst_ip << "," << conn.dst_port << ","
-                                     << conn.dst_domain << ","
-                                     << conn.protocol << "\n";
-                }
-                connections_file.close();
-            }
+            connections_file.close();
         }
     }
 }
